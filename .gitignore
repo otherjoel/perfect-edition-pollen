@@ -1,0 +1,4 @@
+*.html
+compiled/
+.DS_Store
+publish/
