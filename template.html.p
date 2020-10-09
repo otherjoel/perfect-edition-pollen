@@ -426,7 +426,7 @@ Kobayashi Issa
   </g>
 </svg>
 </div>
-◊(->html (build-toc doc))
+◊(->html (build-web-toc doc))
 </div>
 </nav>
 
