@@ -1,21 +1,19 @@
 #lang pollen/markdown
 
 ◊(define-meta title "The King in Yellow")
-◊(define-meta title_html "<div class=\"title\">
-            <h1><span>The&nbsp;King</span>
-                <span>in&nbsp;Yellow</span>
+◊(define-meta title-html "<div class=\"title\">
+            <h1><span>The&#160;King</span>
+                <span>in&#160;Yellow</span>
             </h1>
             <h2>Robert W. Chambers</h2>
             </div>")
 ◊(define-meta description "This is a story originally published in 1895")
 ◊(define-meta author "Robert W. Chambers")
 ◊(define-meta slug "the-king-in-yellow")
-◊(define-meta pub_date "2020-07-01")
-◊(define-meta home_url "https://joeldueck.com")
-◊(define-meta cover_image "img/king-cover.jpg")
-◊(define-meta spot_color "rgb( 192, 54, 44)")
-◊(define-meta use_twitter_card #true)
-◊(define-meta twitter_username "@joeld")
+◊(define-meta pub-date "2020-07-01")
+◊(define-meta home-url "https://joeldueck.com")
+◊(define-meta cover-image "king-cover.jpg")
+◊(define-meta twitter-username "@joeld")
 
 ## The Repairer of Reputations
 

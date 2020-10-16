@@ -3,18 +3,51 @@
 (require "toc.rkt"
          txexpr
          racket/match
+         racket/file
          racket/string
+         racket/system
          racket/path
+         pollen/setup
          pollen/template)
 
+; Anatomy of an ePub file:
+;
+;  ┌─────────┐  ┌──────────┐
+;  │ List of │  │ List of  │                                 ┌──────────────────┐
+;  │  font   │  │  images  │   ┌─────────────────────┐   ┌ ─▶│    ToC Items     │
+;  │  files  │  │          │   │Book content (XHTML) │─ ─    └──────────────────┘
+;  └─────────┘  └──────────┘   └─────────────────────┘                 │
+;       │             │                   │                            │
+;       │             │                   │                    ┌───────┴──────┐
+;       └───────┬─────┘                   │                    │              │
+;               │                         │                    │              │
+;               ▼                         ▼                    ▼              ▼
+;    ┌─────────────────────┐   ┌─────────────────────┐  ┌────────────┐  ┌───────────┐
+;    │     (Manifest)      │   │     (The Book)      │  │ nav.xhtml  │  │  toc.ncx  │
+;    │      book.opf       │   │ SLUG-content.xhtml  │  │            │  │           │
+;    └─────────────────────┘   └─────────────────────┘  └────────────┘  └───────────┘
+;
+; These four key files get placed into a folder with other supporting files thusly:
+;
+; - mimetype
+; + BOOK/
+;   - book.opf
+;   - SLUG-content.xhtml
+;   - nav.xhtml
+;   - toc.ncx
+;   - epub.css         Copied from CSS folder
+;   + img/             Contains all images, copied in
+;   + font/            Contains all fonts, copied in
+;   + META-INF
+;     - container.xml  Static
+;     - com.apple.ibooks.display-options.xml
+
+
 ;; ePub functions
-(provide xml-id-root
-         images-folder  ; Defaults to "img", must contain ONLY images
-         fonts-folder   ; Defaults to "font", must contain ONLY woff2 fonts
-         epub-content-xhtml-string   ; For main content file
-         epub-manifest-xhtml-string  ; Manifest
-         epub-nav-xhtml-string       ; Table of contents
-         epub-ncx-xhtml-string)      ; Alternate table of contents
+(provide xml-id-root       ; Root portion of an XML identifier
+         images-folder     ; Defaults to "img", must contain ONLY images
+         fonts-folder      ; Defaults to "font", must contain ONLY woff2 fonts
+         write-epub-files) ; Builds and zips up an ePub file
 
 (define images-folder (make-parameter (build-path (current-directory) "img")))
 (define fonts-folder (make-parameter (build-path (current-directory) "font")))
@@ -28,6 +61,8 @@
     [(or #".jpeg" #".jpg") "image/jpeg"]
     [#".woff2" "font/woff2"]))
 
+;; Builds an x-expr for use in the manifest
+;; extra-attr should be a 1-arity function that returns a single key-value pair
 (define (manifest-items [folder (current-directory)]
                         [extra-attr (λ (x) null)])
   (define files (directory-list folder))
@@ -36,24 +71,26 @@
    (map ->html
         (for/list ([ip (in-list files)]
                    [ctr (in-naturals)])
-          `(item
-            ,(append `((id (number->string ctr))
+          (define item-tag
+          `(item ((id ,(number->string ctr))
                        (href ,(path->string ip))
-                       (media-type ,(mimetype ip)))
-                     (extra-attr ip)))))))
+                       (media-type ,(mimetype ip)))))
+          (match (extra-attr ip)
+            [(list key val) (attr-set item-tag key val)]
+            [_ item-tag])))))
 
 (define (manifest-image-items cover-filename)
   (define (maybe-cover filepath)
     (cond
       [(string=? cover-filename (path->string filepath)) '(properties "cover-image")]
       [else null]))
-  (manifest-items images-folder maybe-cover))
+  (manifest-items (images-folder) maybe-cover))
 
 (define (manifest-font-items)
-  (manifest-items fonts-folder))
+  (manifest-items (fonts-folder)))
                  
 (define (epub-content-xhtml-string metas body-html)
-  @string-append*{
+    @string-append{
  <?xml version="1.0" encoding="UTF-8"?>
  <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en"
  xmlns:epub="http://www.idpf.org/2007/ops">
@@ -73,13 +110,13 @@
  </section>
  </body>
  </html>})
-    
+
 (define (epub-manifest-xhtml-string metas)
   (define slug (hash-ref metas 'slug))
   (define pub-date (hash-ref metas 'pub-date))
   (define modified-date (or (hash-ref metas 'modified-date #f) pub-date))
   
-  @string-append*{
+  @string-append{
  <?xml version="1.0" encoding="UTF-8"?>
  <package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="uid" xml:lang="en-US" prefix="cc: http://creativecommons.org/ns#">
  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
@@ -110,6 +147,8 @@
  </spine>
  </package>})
 
+;; Returns an HTML string containing an ordered list of links to
+;; headings in the main content file
 (define (epub-nav-toc slug items)
   (define list-items
     (for/list ([t (in-list items)])
@@ -117,9 +156,10 @@
               ,@(toc-item-title-elements t)))))
   (->html `(ol ,@list-items)))
 
+
 (define (epub-nav-xhtml-string metas toc-items)
   (define slug (hash-ref metas 'slug))
-  @string-append*{
+  @string-append{
  <?xml version="1.0" encoding="UTF-8"?>
  <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en"
  xmlns:epub="http://www.idpf.org/2007/ops">
@@ -137,13 +177,14 @@
 
  <li><a epub:type="frontmatter" href="@|slug|-content.xhtml#frontmatter">frontmatter</a></li>
 
- <li><a epub:type="bodymatter" href=""@|slug|-content.xhtml#bodymatter">bodymatter</a></li>
+ <li><a epub:type="bodymatter" href="@|slug|-content.xhtml#bodymatter">bodymatter</a></li>
  </ol>
  </nav>
 
  </body>
  </html>})
 
+;; Same as epub-nav-toc but in the format needed for the NCX file
 (define (epub-ncx-toc slug items)
   (define list-items
     (for/list ([t (in-list items)])
@@ -155,7 +196,7 @@
 
 (define (epub-ncx-xhtml-string metas toc-items)
   (define slug (hash-ref metas 'slug))
-  @string-append*{
+  @string-append{
  <?xml version="1.0" encoding="UTF-8"?>
  <ncx xmlns:ncx="http://www.daisy.org/z3986/2005/ncx/" xmlns="http://www.daisy.org/z3986/2005/ncx/"
  version="2005-1" xml:lang="en">
@@ -167,3 +208,74 @@
  </docTitle>
  @(epub-ncx-toc slug toc-items)
  </ncx>})
+
+;; String constants for misc files needed in the epub
+;;
+(define ibooks-display-xml #<<END
+<?xml version="1.0" encoding="UTF-8"?>
+<display_options>
+  <platform name="*">
+    <option name="specified-fonts">true</option>
+  </platform>
+</display_options>
+END
+  )
+
+(define container-xml #<<END
+<?xml version="1.0" encoding="UTF-8"?>
+<container xmlns="urn:oasis:names:tc:opendocument:xmlns:container" version="1.0">
+  <rootfiles>
+    <rootfile full-path="BOOK/book.opf" media-type="application/oebps-package+xml"/>
+  </rootfiles>
+</container>
+END
+  )
+
+(define (copy-files-to src-folder dest-folder)
+  (for ([f (in-directory src-folder)])
+    (define-values (_ the-file x) (split-path f))
+    (copy-file f (build-path dest-folder the-file))))
+
+(define (write-epub-files doc metas)
+  (define toc-structs (toc-items doc))
+  (define slug (hash-ref metas 'slug))
+  (define epub-filename (format "~a.epub" slug))
+
+  (define content-str (epub-content-xhtml-string metas (->html doc)))
+  (define manifest-str (epub-manifest-xhtml-string metas))
+  (define nav-str (epub-nav-xhtml-string metas toc-structs))
+  (define ncx-str (epub-ncx-xhtml-string metas toc-structs))
+
+  (define work-dir (build-path (current-directory) "build" "epub"))
+  (define core-dir (build-path work-dir "BOOK"))
+  (define meta-dir (build-path work-dir "META-INF"))
+
+  (delete-directory/files (build-path (current-directory) "build")
+                          #:must-exist? #f)
+
+  (make-directory* core-dir)
+  (make-directory* meta-dir)
+
+  (display-to-file content-str (build-path core-dir (format "~a-content.xhtml" slug)))
+  (display-to-file manifest-str (build-path core-dir "book.opf"))
+  (display-to-file nav-str (build-path core-dir (format "~a-nav.xhtml" slug)))
+  (display-to-file ncx-str (build-path core-dir "toc.ncx"))
+
+  (display-to-file "application/epub+zip" (build-path work-dir "mimetype"))
+  (display-to-file ibooks-display-xml (build-path meta-dir "com.apple.ibooks.display-options.xml"))
+  (display-to-file container-xml (build-path meta-dir "container.xml"))
+
+  (copy-directory/files (images-folder) (build-path core-dir "img"))
+  (copy-directory/files (fonts-folder) (build-path core-dir "font"))
+  (copy-file (build-path (current-project-root) "css" "epub.css")
+             (build-path core-dir "epub.css"))
+
+  (define build-command
+    @string-append{
+     cd build/epub;
+     zip -X0 @epub-filename mimetype;
+     zip -r @epub-filename META-INF BOOK})
+
+  (if (system build-command)
+      (build-path work-dir epub-filename)
+      (error "Error building epub file!")))

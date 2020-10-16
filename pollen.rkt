@@ -1,10 +1,15 @@
 #lang racket/base
 
 (require "toc.rkt"
+         "epub.rkt"
          pollen/decode
+         racket/match
+         racket/file
          txexpr)
 
-(provide (all-defined-out))
+(provide (all-defined-out)
+         (all-from-out "epub.rkt")
+         file->bytes)
 
 (module setup racket
   (define default-poly-targets '(html epub))
@@ -29,9 +34,23 @@
   (define new-elements
     (decode-elements
      elements
-     #:txexpr-proc (enforce-unique-headings)))
+     #:txexpr-proc (enforce-unique-headings)
+     #:entity-proc numberify))
 
   (txexpr 'div '() new-elements))
+
+;; epub files don't seem to like named HTML entities
+;; Need to use numeric ones instead
+(define (numberify e)
+  (match e
+    ['rsquo 8217]
+    ['lsquo 8216]
+    ['rdquo 8221]
+    ['ldquo 8220]
+    ['nbsp 160]
+    ['mdash 8212]
+    ['hellip 8230]
+    [_ e]))
 
 (define (build-web-toc doc)
   (define toc-list-items

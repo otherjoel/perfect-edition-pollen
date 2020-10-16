@@ -444,7 +444,7 @@ Kobayashi Issa
   <p>Basically, <small>everything works</small></p>
 </div>
 
-<img class="cover" src="◊(select-from-metas 'cover_image metas)" alt="" />
+<img class="cover" src="img/◊(select-from-metas 'cover_image metas)" alt="" />
 ◊(select-from-metas 'title_html metas)
 
 ◊(->html doc)

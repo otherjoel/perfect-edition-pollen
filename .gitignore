@@ -2,3 +2,5 @@
 compiled/
 .DS_Store
 publish/
+build/
+*.epub
