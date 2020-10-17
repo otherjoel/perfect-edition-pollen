@@ -45,12 +45,12 @@
 
 ;; ePub functions
 (provide xml-id-root       ; Root portion of an XML identifier
-         images-folder     ; Defaults to "img", must contain ONLY images
-         fonts-folder      ; Defaults to "font", must contain ONLY woff2 fonts
+         images-subfolder  ; Defaults to "img", must contain ONLY images
+         fonts-subfolder   ; Defaults to "font", must contain ONLY woff2 fonts
          write-epub-files) ; Builds and zips up an ePub file
 
-(define images-folder (make-parameter (build-path (current-directory) "img")))
-(define fonts-folder (make-parameter (build-path (current-directory) "font")))
+(define images-subfolder (make-parameter (string->path "img")))
+(define fonts-subfolder (make-parameter (string->path "font")))
 
 ;; Root portion of some world-global identifier used in the XML
 (define xml-id-root (make-parameter "com.google"))
@@ -63,9 +63,9 @@
 
 ;; Builds an x-expr for use in the manifest
 ;; extra-attr should be a 1-arity function that returns a single key-value pair
-(define (manifest-items [folder (current-directory)]
+(define (manifest-items [subfolder (current-project-root)]
                         [extra-attr (λ (x) null)])
-  (define files (directory-list folder))
+  (define files (directory-list (build-path (current-project-root) subfolder)))
 
   (string-append*
    (map ->html
@@ -73,9 +73,9 @@
                    [ctr (in-naturals)])
           (define item-tag
           `(item ((id ,(number->string ctr))
-                       (href ,(path->string ip))
+                       (href ,(path->string (build-path subfolder ip)))
                        (media-type ,(mimetype ip)))))
-          (match (extra-attr ip)
+          (match (extra-attr (build-path subfolder ip))
             [(list key val) (attr-set item-tag key val)]
             [_ item-tag])))))
 
@@ -84,10 +84,10 @@
     (cond
       [(string=? cover-filename (path->string filepath)) '(properties "cover-image")]
       [else null]))
-  (manifest-items (images-folder) maybe-cover))
+  (manifest-items (images-subfolder) maybe-cover))
 
 (define (manifest-font-items)
-  (manifest-items (fonts-folder)))
+  (manifest-items (fonts-subfolder)))
                  
 (define (epub-content-xhtml-string metas body-html)
     @string-append{
@@ -241,12 +241,14 @@ END
   (define slug (hash-ref metas 'slug))
   (define epub-filename (format "~a.epub" slug))
 
+  ;; The string content of the 4 core files (diagram at top of thie module)
   (define content-str (epub-content-xhtml-string metas (->html doc)))
   (define manifest-str (epub-manifest-xhtml-string metas))
   (define nav-str (epub-nav-xhtml-string metas toc-structs))
   (define ncx-str (epub-ncx-xhtml-string metas toc-structs))
 
-  (define work-dir (build-path (current-directory) "build" "epub"))
+  ;; Directory structure:
+  (define work-dir (build-path (current-project-root) "build" "epub"))
   (define core-dir (build-path work-dir "BOOK"))
   (define meta-dir (build-path work-dir "META-INF"))
 
@@ -256,6 +258,7 @@ END
   (make-directory* core-dir)
   (make-directory* meta-dir)
 
+  ;; Write out the 4 core files
   (display-to-file content-str (build-path core-dir (format "~a-content.xhtml" slug)))
   (display-to-file manifest-str (build-path core-dir "book.opf"))
   (display-to-file nav-str (build-path core-dir (format "~a-nav.xhtml" slug)))
@@ -265,8 +268,10 @@ END
   (display-to-file ibooks-display-xml (build-path meta-dir "com.apple.ibooks.display-options.xml"))
   (display-to-file container-xml (build-path meta-dir "container.xml"))
 
-  (copy-directory/files (images-folder) (build-path core-dir "img"))
-  (copy-directory/files (fonts-folder) (build-path core-dir "font"))
+  (copy-directory/files (build-path (current-project-root) (images-subfolder))
+                        (build-path core-dir (images-subfolder)))
+  (copy-directory/files (build-path (current-project-root) (fonts-subfolder))
+                        (build-path core-dir (fonts-subfolder)))
   (copy-file (build-path (current-project-root) "css" "epub.css")
              (build-path core-dir "epub.css"))
 

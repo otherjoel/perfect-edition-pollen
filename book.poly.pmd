@@ -12,7 +12,7 @@
 ◊(define-meta slug "the-king-in-yellow")
 ◊(define-meta pub-date "2020-07-01")
 ◊(define-meta home-url "https://joeldueck.com")
-◊(define-meta cover-image "king-cover.jpg")
+◊(define-meta cover-image "img/king-cover.jpg")
 ◊(define-meta twitter-username "@joeld")
 
 ## The Repairer of Reputations
