@@ -12,8 +12,8 @@
          file->bytes)
 
 (module setup racket
-  (define default-poly-targets '(html epub))
-  (provide default-poly-targets))
+  (define poly-targets '(html epub))
+  (provide poly-targets))
 
 ;; Returns a one-argument function that will replace the id attribute on
 ;; an h2 tag to ensure it is unique among all h2 tags passed to this function.
