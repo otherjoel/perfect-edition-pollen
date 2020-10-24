@@ -1,11 +1,11 @@
 # Perfect Edition (Pollen version)
 
-This is an **unfinished** [Pollen][2] port of Robin Sloan’s [Perfect Edition][1] template for web books
+This is an [Pollen][2] port of Robin Sloan’s [Perfect Edition][1] template for web books
 and ebooks. See that repo for a preview of what this looks like.
 
 All that you see here was coded during a live streaming session that is part of my [Pollen Time][pt]
 series, where I teach Pollen publishing techniques. The recordings for this particular project are
-on YouTube ([Part 1]][yt1], [Part 2][yt2]).
+on YouTube ([Part 1][yt1], [Part 2][yt2]).
 
 [yt1]: https://youtu.be/bleu1mSAFuo 
 [yt2]: https://youtu.be/lkF8_xQcbUQ
