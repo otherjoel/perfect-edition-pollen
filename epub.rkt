@@ -1,14 +1,14 @@
 #lang at-exp racket/base
 
-(require "toc.rkt"
-         txexpr
-         racket/match
+(require pollen/setup
+         pollen/template
          racket/file
+         racket/match
+         racket/path
          racket/string
          racket/system
-         racket/path
-         pollen/setup
-         pollen/template)
+         txexpr
+         "toc.rkt")
 
 ; Anatomy of an ePub file:
 ;
@@ -230,11 +230,6 @@ END
 </container>
 END
   )
-
-(define (copy-files-to src-folder dest-folder)
-  (for ([f (in-directory src-folder)])
-    (define-values (_ the-file x) (split-path f))
-    (copy-file f (build-path dest-folder the-file))))
 
 (define (write-epub-files doc metas)
   (define toc-structs (toc-items doc))

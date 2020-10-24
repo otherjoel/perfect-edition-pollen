@@ -1,8 +1,6 @@
 #lang racket/base
 
-(require txexpr
-         racket/string
-         pollen/template)
+(require txexpr)
 
 (provide (struct-out toc-item)
          is-h2?

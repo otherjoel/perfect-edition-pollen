@@ -1,11 +1,11 @@
 #lang racket/base
 
-(require "toc.rkt"
-         "epub.rkt"
-         pollen/decode
-         racket/match
+(require pollen/decode
          racket/file
-         txexpr)
+         racket/match
+         txexpr
+         "epub.rkt"
+         "toc.rkt")
 
 (provide (all-defined-out)
          (all-from-out "epub.rkt")
@@ -17,7 +17,7 @@
 
 ;; Returns a one-argument function that will replace the id attribute on
 ;; an h2 tag to ensure it is unique among all h2 tags passed to this function.
-(define (enforce-unique-headings)
+(define (make-unique-headings-enforcer)
   (define headings (make-hash))
   (λ (txpr)
     (cond
@@ -34,7 +34,7 @@
   (define new-elements
     (decode-elements
      elements
-     #:txexpr-proc (enforce-unique-headings)
+     #:txexpr-proc (make-unique-headings-enforcer)
      #:entity-proc numberify))
 
   (txexpr 'div '() new-elements))
